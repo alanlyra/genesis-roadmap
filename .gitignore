@@ -1,0 +1,11 @@
+**/node_modules
+**/mongo/db
+**/mongo/db_old
+**/mongo/db_version_old
+**/data
+**/.env
+**/build
+**/connect-fundao
+**/node-start.sh
+**/normalize.min.cssZone.Identifier
+**/.pdf
