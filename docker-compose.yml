@@ -5,8 +5,10 @@ services:
       context: ./
       dockerfile: dockerfiles/node-lts
     image: node-lts
+    mem_limit: 32g
     volumes: 
       - ./app:/home/node/app
+      - ${MODELS_PATH}:/home/node/app/src/models
     env_file:
       - .env
     stdin_open: true

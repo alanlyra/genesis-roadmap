@@ -1,8 +1,47 @@
 const express = require('express')
 const router = new express.Router()
 const Projects = require('../models/Projects')
+const DocumentSchema = require('../models/subSchemas/DocumentSchema')
+const OpenAI = require('../services/openai')
+const GPT4All = require('../services/gpt4all')
+const LocalAI = require('../services/localai')
 
-router.get('/roadmap/:_id', async (req, res) => {
+router.get('/roadmap/document/:_id', async (req, res) => {
+    const { _id } = req.params;
+
+    const document = await DocumentSchema.findById(_id);
+    if (!document) {
+        return res.status(404).send({ message: 'Document not found' });
+    }
+
+    const results = await LocalAI.roadmap(document);
+
+    console.log("Resultado:")
+    console.log(results);
+
+    const project = await Projects.findOne({ 'bibliometrics.documents': document });
+
+    console.log("Projeto" + project);
+    try {
+        project.roadmap.push(...results);
+        await project.save();
+    } catch (error) {
+        throw new Error(error);
+    }
+
+    // document.roadmap = results;
+
+    // try {
+    //     await document.save();
+    // } catch (error) {
+    //     throw new Error(error);
+    // }
+
+    res.send(document);
+});
+
+
+router.get('/roadmap/project:_id', async (req, res) => {
     const { _id } = req.params;
 
     const project = await Projects.findById(_id).populate('bibliometrics.documents');
@@ -10,10 +49,14 @@ router.get('/roadmap/:_id', async (req, res) => {
         return res.status(404).send({ message: 'Project not found' });
     }
 
-    project.bibliometrics.documents.forEach(document => {
-        console.log(document);
-      });
+    const responses = [];
 
+    console.log(project.bibliometrics.documents.length)
+    project.bibliometrics.documents.forEach(document => {
+        // responses.push(LocalAI.roadmap(document.preprocessing.sentences));
+    });
+
+    //console.log(responses[0].completions);
     res.send(project.bibliometrics.documents[1]);
 });
 
