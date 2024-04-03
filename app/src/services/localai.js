@@ -29,11 +29,11 @@ async function roadmap(document) {
             const completion = extractJsonResponse(response.data.choices[0].message.content);
             responses.push({
                 //index: entry.index,
-                document: document._id,
-                sentence: entry.sentence,
-                forecast: completion.forecast_text,
-                forecastDate: completion.date,
-                explicitDate: completion.date
+                document: document ? document._id : null,
+                sentence: entry && entry.sentence ? entry.sentence : null,
+                forecast: completion && completion.forecast_text ? completion.forecast_text : null,
+                forecastDate: completion && completion.date ? completion.date : null,
+                explicitDate: completion && completion.date ? completion.date : null
             });
         } catch (error) {
             console.error('Erro:', error);
