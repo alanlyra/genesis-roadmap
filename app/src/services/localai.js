@@ -33,7 +33,9 @@ async function roadmap(document) {
                 sentence: entry && entry.sentence ? entry.sentence : null,
                 forecast: completion && completion.forecast_text ? completion.forecast_text : null,
                 forecastDate: completion && completion.date ? completion.date : null,
-                explicitDate: completion && completion.date ? completion.date : null
+                explicitDate: completion && completion.date ? completion.date : null,
+                createdDate: new Date(),
+                deleted: false
             });
         } catch (error) {
             console.error('Erro:', error);
