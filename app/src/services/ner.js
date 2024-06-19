@@ -63,5 +63,54 @@ function processString(input) {
     return id;
   }
 
-module.exports.ner = ner;
+  async function roadmapByNER(document) {
+    const nerTaggedText = document.preprocessing.nerTaggedText;
+    let responses = [];
+    
+    const paragraphs = nerTaggedText.split('\n'); // Dividir por parágrafos (assumindo que os parágrafos são separados por uma quebra de linha)
+  
+    paragraphs.forEach(async (paragraph) => {
+        if (paragraph.includes('/DATE') &&
+            (paragraph.includes('/U_TEMPPRED') ||
+            paragraph.includes('/B_TEMPPRED') ||
+            paragraph.includes('/M_TEMPPRED') ||
+            paragraph.includes('/E_TEMPPRED'))) {
+            let event = buildEventFromNER(paragraph, document);
+            responses.push(event);
+        } 
+    });
+
+    return responses
+}
+
+function buildEventFromNER(paragraph, document) {
+    const dateRegex = /<DATE>(.*?)<\/DATE>/;
+    const fitRegex = /<(U_TEMPPRED|B_TEMPPRED|M_TEMPPRED|E_TEMPPRED)>(.*?)<\/(U_TEMPPRED|B_TEMPPRED|M_TEMPPRED|E_TEMPPRED)>/g;
+    const eventRegex = /<.*?>/g;
+    
+    const dateMatch = paragraph.match(dateRegex);
+    const fitMatches = Array.from(paragraph.matchAll(fitRegex));
+    
+    const date = dateMatch ? dateMatch[1] : null;
+    const fit = fitMatches.map(match => match[2]);
+    const forecast = paragraph.replace(eventRegex, '');
+
+    const result = {
+        document: document ? document._id : null,
+        sentence: paragraph ? paragraph : null,
+        forecast: forecast ? forecast : null,
+        forecastDate: date ? date : null,
+        explicitDate: date ? date : null,
+        createdDate: new Date(),
+        deleted: false,
+        generatedByNER: true
+      };
+      
+      return result;
+}
+
+module.exports = {
+    ner,
+    roadmapByNER
+  };
 

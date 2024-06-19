@@ -17,11 +17,20 @@ router.get('/ner/document/:_id', async (req, res) => {
     console.log("NER aplicado! Resultado:")
     console.log(result);
 
-    const project = await Projects.findOne({ 'bibliometrics.documents': document });
-
     try {
         document.preprocessing.nerTaggedText = result;
         await document.save();
+    } catch (error) {
+        throw new Error(error);
+    }
+
+    const resultsRoadmap = await NER.roadmapByNER(document);
+
+    const project = await Projects.findOne({ 'bibliometrics.documents': document });
+    console.log("Projeto" + project);
+    try {
+        project.roadmap.push(...resultsRoadmap);
+        await project.save();
     } catch (error) {
         throw new Error(error);
     }
