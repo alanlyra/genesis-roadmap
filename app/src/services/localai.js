@@ -18,6 +18,7 @@ async function roadmap(document) {
             ]
 
         };
+        document.roadmapStatus = i + '/' + sentences.length;
         console.log('Processando: ', i++ + ' de ' + sentences.length);
         try {
             const response = await axios.post('http://local-ai-service:8080/v1/chat/completions', requestData, {

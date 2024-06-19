@@ -9,6 +9,7 @@ const bodyParser = require('body-parser')
 // Importando arquivo de rotas
 const healthyRouter = require('./routers/healthy')
 const roadmapRouter = require('./routers/roadmap')
+const nerRouter = require('./routers/ner')
 //const informacoesCboRouter = require('./routers/informacoesCbo')
 
 const app = express()
@@ -29,6 +30,7 @@ const port = process.env.PORT || 4000
 // Aplicando rotas ao Express
 app.use(healthyRouter)
 app.use(roadmapRouter)
+app.use(nerRouter)
 //app.use("/rais", raisRouter)
 //app.use("/ibge",ibgeRouter)
 //app.use("/relatorio", proxy(process.env.SENAC_RELATORIOS_URL))
