@@ -6,6 +6,7 @@ const { spawnSync } = require('child_process');
 
 async function ner(document) {
     const text = document.preprocessing.text;
+    console.log(`Aplicando NER no documento ${document._id}`);
 
     // Gera um hash aleatório
     const hash = crypto.randomBytes(16).toString('hex');
@@ -30,8 +31,12 @@ async function ner(document) {
         // Executar comando sincronamente
         const { stdout, stderr } = spawnSync(cmd, { shell: true });
 
+        console.log(`ERRO: ${stderr}`);
+
         // Ler o arquivo resultante
         const response = await fs.readFile(taggedFile, 'utf8');
+        console.log(`NER aplicado com sucesso no documento ${document._id}`);
+        console.log(`Resultado do NER: ${response}`);
         return response;
     } catch (error) {
         console.error(`Erro durante o processo NER: ${error}`);

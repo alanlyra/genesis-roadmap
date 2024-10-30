@@ -1,3 +1,4 @@
+/*
 var { createCompletion, loadModel } = require("gpt4all");
 const fs = require('fs').promises;
 
@@ -34,4 +35,4 @@ async function roadmap(sentences) {
 }
 
 module.exports.roadmap = roadmap;
-
+*/

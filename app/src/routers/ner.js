@@ -27,7 +27,8 @@ router.get('/ner/document/:_id', async (req, res) => {
     const resultsRoadmap = await NER.roadmapByNER(document);
 
     const project = await Projects.findOne({ 'bibliometrics.documents': document });
-    console.log("Projeto" + project);
+    console.log("Bla bla bla Projeto" + project);
+    console.log("Bla bla bla Resultado NER: " + resultsRoadmap);
     try {
         project.roadmap.push(...resultsRoadmap);
         await project.save();
