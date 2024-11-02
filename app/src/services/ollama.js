@@ -3,8 +3,10 @@ const axios = require('axios');
 async function roadmap(document) {
   const sentences = document.preprocessing.sentences;
   let responses = [];
+  let i = 1;
   for (const entry of sentences) {
     try {
+      console.log(`Processando sentença ${i} de ${sentences.length}...`);
       // Rodando o OLLAMA localmente
       const prompt = "Given the sentence, if you consider there is a future event with date to occur explicitly in the sentence, extract the future event and return a JSON file with: " +
         "forecast_text (the full future event in the sentence), and the date (the date or time in the sentence that the future event is predicted to occur - like 2050 or next decade; ignore numbers in brackets). " +
@@ -12,11 +14,26 @@ async function roadmap(document) {
 
       // Envia a pergunta
       const response = await sendQuestionToOllama(prompt + entry.sentence);
-      responses.push(response);
+      if (response.forecast_text !== "null") {
+        responses.push({
+            //index: entry.index,
+            document: document ? document._id : null,
+            sentence: entry && entry.sentence ? entry.sentence : null,
+            forecast: response && response.forecast_text ? response.forecast_text : null,
+            forecastDate: response && response.date ? response.date : null,
+            explicitDate: response && response.date ? response.date : null,
+            createdDate: new Date(),
+            deleted: false
+        });
+      }
+      console.log(`Sentença ${i} processada com sucesso!`);
+      //responses.push(response);
     } catch (error) {
+      console.log(`Sentença ${i} falhou!`);
       console.error(`Erro durante o processo OLLAMA: ${error}`);
       throw error; // Re-lança o erro para ser tratado por quem chamar `roadmap`
     }
+    i++;
   }
 
   return responses;
