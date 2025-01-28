@@ -18,8 +18,8 @@ router.get('/roadmap/document/:_id', async (req, res) => {
     //const results = await LocalAI.roadmap(document);
     const results = await OLLAMA.roadmap(document);
 
-    console.log("Resultado:")
-    console.log(results);
+    //console.log("Resultado:")
+    //console.log(results);
 
     const project = await Projects.findOne({ 'bibliometrics.documents': document });
 
@@ -42,7 +42,32 @@ router.get('/roadmap/document/:_id', async (req, res) => {
     res.send(document);
 });
 
-router.get('/roadmap/refinement/document/:_id', async (req, res) => {
+router.get('/roadmap/refinement/project/:_id', async (req, res) => {
+    const { _id } = req.params;
+
+    const project = await Projects.findById(_id).populate('roadmap');
+        if (!project) {
+            return res.status(404).send({ message: 'Project not found' });
+        }
+
+    const results = await OLLAMA.refine(project);
+
+    //console.log("Resultado:")
+    //console.log(results);
+
+    console.log("Projeto" + project);
+    try {
+        project.roadmap = results;
+        //project.roadmap.push(...results);
+        await project.save();
+    } catch (error) {
+        throw new Error(error);
+    }
+
+    res.send(project);
+});
+
+router.get('/old/roadmap/refinement/document/:_id', async (req, res) => {
     const { _id } = req.params;
 
     const document = await DocumentSchema.findById(_id);
