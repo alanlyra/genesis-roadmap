@@ -99,7 +99,7 @@ async function sendQuestionToOllama(question) {
     const responseStream = await axios.post(
       'http://host.docker.internal:11434/api/generate',
       {
-        model: "llama3.1",
+        model: "deepseek-r1:14b",
         prompt: question,
       },
       {

@@ -6,6 +6,7 @@ const OpenAI = require('../services/openai')
 //const GPT4All = require('../services/gpt4all')
 const LocalAI = require('../services/localai')
 const OLLAMA = require('../services/ollama')
+const GEMINI = require('../services/gemini')
 
 router.get('/roadmap/document/:_id', async (req, res) => {
     const { _id } = req.params;
@@ -16,7 +17,8 @@ router.get('/roadmap/document/:_id', async (req, res) => {
     }
 
     //const results = await LocalAI.roadmap(document);
-    const results = await OLLAMA.roadmap(document);
+    //const results = await OLLAMA.roadmap(document);
+    const results = await GEMINI.roadmap(document);
 
     //console.log("Resultado:")
     //console.log(results);
