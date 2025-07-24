@@ -79,7 +79,8 @@ async function roadmap(document) {
 
     let parsed;
     try {
-      parsed = JSON.parse(outputText);
+      let sanitized = sanitizeJsonString(outputText);
+      parsed = JSON.parse(sanitized);
     } catch (err) {
       console.error("Erro ao fazer parse do JSON:", err.message);
       throw new Error("O texto retornado pela IA não é um JSON válido.");
@@ -114,18 +115,26 @@ function adicionarCamposPrevisoes(forecasts, document) {
 }
 
 function extractJsonFromText(text) {
-  const jsonRegex = /```(?:json)?([\s\S]*?)```/i;
-  const match = text.match(jsonRegex);
-  if (match) return match[1].trim();
+  // Tenta extrair conteúdo JSON dentro de blocos markdown ```json
+  const blockMatch = text.match(/```json\s*([\s\S]*?)\s*```/i);
+  if (blockMatch) return blockMatch[1].trim();
 
-  // fallback: tenta encontrar JSON diretamente (sem crases)
+  // Fallback: tenta capturar array JSON diretamente
   const firstBracket = text.indexOf('[');
   const lastBracket = text.lastIndexOf(']');
-  if (firstBracket !== -1 && lastBracket !== -1) {
-    return text.slice(firstBracket, lastBracket + 1);
+  if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+    return text.slice(firstBracket, lastBracket + 1).trim();
   }
 
   throw new Error("Não foi possível extrair JSON da resposta.");
+}
+
+function sanitizeJsonString(jsonStr) {
+  // Substitui aspas internas não escapadas dentro de valores de strings
+  return jsonStr.replace(/"(.*?)":\s*"([^"]*?)"([^",\n}])/g, (match, key, value, extra) => {
+    const safeValue = value.replace(/"/g, '\\"');
+    return `"${key}": "${safeValue}"${extra}`;
+  });
 }
 
 module.exports = {

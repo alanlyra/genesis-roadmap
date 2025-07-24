@@ -1,166 +1,154 @@
 const axios = require('axios');
 
-async function roadmap(document) {
-  const sentences = document.preprocessing.sentences;
-  let responses = [];
-  let i = 1;
-  for (const entry of sentences) {
-    try {
-      console.log(`Processando sentença ${i} de ${sentences.length}...`);
-      // Rodando o OLLAMA localmente
-      const prompt = "Given the sentence, if you consider there is a future event with date to occur explicitly in the sentence, extract the future event and return a JSON file with: " +
-        "forecast_text (the full future event in the sentence), and the date (the date or time in the sentence that the future event is predicted to occur - only numbers like 2050 or next decade; ignore numbers in brackets). " +
-        "If you don't consider that is a future event, return only null. Sentence: ";
+/**
+ * Prompt com seed JSON e instruções reforçadas.
+ */
+function createPrompt(blockText, publicationYear, maxEventsPerBlock = 15) {
+  return `
+You are an AI trained to extract future-oriented forecasts from foresight reports.
 
-      // Envia a pergunta
-      const response = await sendQuestionToOllama(prompt + entry.sentence);
-      if (response.forecast_text !== "null") {
-        responses.push({
-            //index: entry.index,
-            document: document ? document._id : null,
-            sentence: entry && entry.sentence ? entry.sentence : null,
-            forecast: response && response.forecast_text ? response.forecast_text : null,
-            forecastDate: response && response.date ? response.date : null,
-            explicitDate: response && response.date ? response.date : null,
-            createdDate: new Date(),
-            deleted: false
-        });
-      }
-      console.log(`Sentença ${i} processada com sucesso!`);
-      //responses.push(response);
-    } catch (error) {
-      console.log(`Sentença ${i} falhou!`);
-      console.error(`Erro durante o processo OLLAMA: ${error}`);
-      throw error; // Re-lança o erro para ser tratado por quem chamar `roadmap`
-    }
-    i++;
-  }
+From the document below (published in ${publicationYear}), extract at most ${maxEventsPerBlock} relevant future events.
 
-  return responses;
+Each event must include:
+- "forecastDate": the predicted 4-digit year
+- "forecast": a concise summary of the future event
+- "sentence": a short quote (1 sentence max) that introduces the idea
+
+Only return a valid JSON array of events. Start immediately with:
+
+[
+  {
+    "forecastDate": 2050,
+    "forecast": "Low-level journalism will be automated by AI tools.",
+    "sentence": "By 2050, part of the workforce will be automated to better suit the new world market."
+  },
+
+Now extract the real forecasts from the following document:
+"""${blockText}"""
+`;
 }
 
-async function refine(project) {
-  const sentences = project.roadmap;
-  let responses = [];
-  let i = 1;
-  for (const entry of sentences) {
-    try {
-      console.log(`Refinando forecast ${i} de ${sentences.length}...`);
-      // Rodando o OLLAMA localmente
+/**
+ * Divide o texto completo em blocos de ~4000 palavras (~16000 caracteres).
+ */
+function splitTextIntoBlocks(text, maxChars = 16000) {
+  const paragraphs = text.split(/\n+/);
+  const blocks = [];
+  let current = '';
 
-      const prompt = "Analyze the following text and determine if seems to be a text talking about a something that will happen in the future." +
-                     "If yes, rreturn a json with the text inside field 'forecast_text'. " +
-                     "Here is the input text to analyze: ";
-
-      /* const prompt = "Analyze the following text and determine if it represents a future event (forecast) or if it is a phrase without relevance for forecasting purposes. " +
-                     "If it is a meaningful forecast: " +
-                     "Return a JSON object containing two keys: forecast_text (the original forecast text) and date (only the year in numeric format). " +
-                     "For the date, convert expressions like 'next year' or 'by 2050' into a four-digit year based on the current year (2024)." +
-                     "If the text is irrelevant or meaningless for forecasting: Return null. " +
-                     "Here is the input text to analyze: "; */
-      
-      /* const prompt = "Analyzing the text, tell me if it is a complete a future event (forecast) with a meaning or seemns to be a text without meaning to be understood without any context. " + 
-      "If it is a forecast, return a json with the forecast_text and the date. If not, return only null. " + 
-      "And about the Date, I need only years. You can calculate for me considering we are in 2024 if is a expression like (in the next year, e.g.). " + 
-      "Forecast: "; */
-
-      // Envia a pergunta
-      const response = await sendQuestionToOllama(prompt + entry.forecast);
-      /* const response = await sendQuestionToOllama(prompt + entry.forecast + " Date: " + entry.explicitDate); */
-
-      console.log('OLLAMA refinement response: ', response);
-      if (response.forecast_text !== "null") {
-        responses.push({
-            //index: entry.index,
-            sentence: entry && entry.sentence ? entry.sentence : null,
-            forecast: response && response.forecast_text ? response.forecast_text : null,
-            forecastDate: response && response.date ? response.date : null,
-            explicitDate: response && response.date ? response.date : null,
-            createdDate: new Date(),
-            deleted: false
-        });
-      }
-      console.log(`Forecast ${i} refinado com sucesso!`);
-      console.log(`Novo Forecast: ${response.forecast_text}`);
-      //responses.push(response);
-    } catch (error) {
-      console.log(`Forecast ${i} falhou!`);
-      console.error(`Erro durante o processo OLLAMA: ${error}`);
-      throw error; // Re-lança o erro para ser tratado por quem chamar `roadmap`
+  for (const p of paragraphs) {
+    if ((current + p).length < maxChars) {
+      current += p + '\n';
+    } else {
+      blocks.push(current.trim());
+      current = p + '\n';
     }
-    i++;
   }
 
-  return responses;
+  if (current.trim()) {
+    blocks.push(current.trim());
+  }
+
+  return blocks;
 }
 
-async function sendQuestionToOllama(question) {
+/**
+ * Envia o prompt ao Ollama (stream: false).
+ */
+async function sendToOllama(prompt) {
   try {
-    const responseStream = await axios.post(
-      'http://host.docker.internal:11434/api/generate',
-      {
-        model: "deepseek-r1:14b",
-        prompt: question,
-      },
-      {
-        responseType: 'stream',
-      }
-    );
-
-    let completeResponse = '';
-
-    // Processa cada fragmento de resposta que chega
-    responseStream.data.on('data', (chunk) => {
-      const data = chunk.toString().trim().split('\n');
-      data.forEach((line) => {
-        if (line) {
-          try {
-            const jsonLine = JSON.parse(line);
-            if (jsonLine.response) {
-              completeResponse += jsonLine.response;
-            }
-          } catch (error) {
-            console.error("Erro ao analisar JSON:", error.message);
-          }
-        }
-      });
+    const res = await axios.post('http://host.docker.internal:11434/api/generate', {
+      model: 'dolphin-llama3:latest',
+      prompt,
+      stream: false
     });
 
-    // Ao final do stream, processa o texto completo para extrair o JSON desejado
-    return new Promise((resolve) => {
-      responseStream.data.on('end', () => {
-        const extractedJSON = extractJSON(completeResponse);
-        //console.log("JSON Extraído:", extractedJSON);
-        resolve(extractedJSON);
-      });
-    });
-  } catch (error) {
-    console.error("Erro ao se comunicar com o Ollama:", error.message);
-    return {
-      "forecast_text": "null",
-      "date": "null"
-    };
+    return res.data.response;
+  } catch (err) {
+    console.error("❌ Erro na chamada ao Ollama:", err.message);
+    return null;
   }
 }
 
-// Função para extrair o JSON da resposta, caso exista
-function extractJSON(responseText) {
-  // Expressão regular para capturar um padrão JSON de previsão
-  const jsonMatch = responseText.match(/({\s*"forecast_text":\s*".*?",\s*"date":\s*".*?"\s*})/);
+/**
+ * Extrai bloco JSON da resposta.
+ */
+function extractJsonFromText(text) {
+  const match = text.match(/\[.*\]/s);
+  if (match) return match[0].trim();
+  throw new Error("Não foi possível encontrar JSON na resposta.");
+}
 
-  if (jsonMatch) {
-    // Se o JSON for encontrado, parse e retorne
-    return JSON.parse(jsonMatch[0]);
-  } else {
-    // Retorna o JSON padrão se não houver previsão
-    return {
-      "forecast_text": "null",
-      "date": "null"
-    };
+/**
+ * Corrige strings JSON malformadas.
+ */
+function sanitizeJsonString(jsonStr) {
+  return jsonStr.replace(/"(.*?)":\s*"([^"]*?)"([^",\n}])/g, (match, key, value, extra) => {
+    const safeValue = value.replace(/"/g, '\\"');
+    return `"${key}": "${safeValue}"${extra}`;
+  });
+}
+
+/**
+ * Adiciona metadados a cada previsão.
+ */
+function enrichForecasts(forecasts, document) {
+  return forecasts.map(item => ({
+    ...item,
+    document: document._id,
+    deleted: false
+  }));
+}
+
+/**
+ * Função principal: processa texto em blocos e concatena JSONs.
+ */
+async function roadmap(document) {
+  const publicationYear = 2017;
+  const fullText = document.preprocessing.text;
+  const maxEventsPerBlock = 15;
+
+  const blocks = splitTextIntoBlocks(fullText, 16000);
+  let allForecasts = [];
+
+  console.log(`📄 Documento dividido em ${blocks.length} bloco(s) (~4000 palavras cada).`);
+
+  for (let i = 0; i < blocks.length; i++) {
+    console.log(`🚀 Processando bloco ${i + 1} de ${blocks.length}...`);
+
+    const prompt = createPrompt(blocks[i], publicationYear, maxEventsPerBlock);
+    const response = await sendToOllama(prompt);
+
+    if (!response) {
+      console.warn(`⚠️ Nenhuma resposta recebida para o bloco ${i + 1}`);
+      continue;
+    }
+
+    // Log da resposta crua (primeiros 1000 caracteres)
+    console.log(`📤 Resposta bruta do bloco ${i + 1}:\n${response.slice(0, 1000)}\n---`);
+
+    try {
+      const jsonText = extractJsonFromText(response);
+      const sanitized = sanitizeJsonString(jsonText);
+      const parsed = JSON.parse(sanitized);
+
+      if (Array.isArray(parsed)) {
+        allForecasts = allForecasts.concat(parsed);
+        console.log(`✅ Bloco ${i + 1}: ${parsed.length} evento(s) extraído(s).`);
+      } else {
+        console.warn(`⚠️ Bloco ${i + 1} não retornou um array válido.`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ Erro ao processar JSON do bloco ${i + 1}: ${err.message}`);
+    }
   }
+
+  const enriched = enrichForecasts(allForecasts, document);
+
+  console.log(`\n📌 Total de eventos extraídos: ${enriched.length}`);
+  return enriched;
 }
 
 module.exports = {
-  roadmap,
-  refine
+  roadmap
 };
